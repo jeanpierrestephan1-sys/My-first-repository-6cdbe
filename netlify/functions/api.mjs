@@ -7,7 +7,7 @@ export const config = { path: "/api/*" };
 const MAX_PLAYERS = 12;
 const ENTRY_PER_GAME = 1;
 const ADMIN_CODE = (globalThis.Netlify?.env?.get?.("ADMIN_CODE")) || process.env.ADMIN_CODE || ""; // set in Netlify, never in the repo
-const LINES_AS_OF = "Wed Nov 25, 2026 · 6:50 PM ET";
+const LINES_AS_OF = "Wed, Nov 25 at 6:50 PM ET";
 
 // spread = HOME team's spread (negative = home favored). total = over/under.
 // espnA / espnH = ESPN "location" names used to auto-match final scores.
