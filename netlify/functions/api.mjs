@@ -12,6 +12,7 @@ const LINES_AS_OF = "Wed, Nov 25 at 6:50 PM ET";
 // spread = HOME team's spread (negative = home favored). total = over/under.
 // espnA / espnH = ESPN "location" names used to auto-match final scores.
 export const GAMES = [
+  { id: "nfl0", lg: "NFL", day: "Wednesday", ko: "2026-11-26T01:00:00Z", away: "Packers", home: "Rams", spread: -2.5, total: 43.5, tv: "Netflix", espnA: "Green Bay", espnH: "Los Angeles" },
   { id: "nfl1", lg: "NFL", day: "Thanksgiving", ko: "2026-11-26T18:00:00Z", away: "Bears", home: "Lions", spread: 1.5, total: 55.5, tv: "CBS", espnA: "Chicago", espnH: "Detroit" },
   { id: "nfl2", lg: "NFL", day: "Thanksgiving", ko: "2026-11-26T21:30:00Z", away: "Eagles", home: "Cowboys", spread: -8.5, total: 47.5, tv: "FOX", espnA: "Philadelphia", espnH: "Dallas" },
   { id: "nfl3", lg: "NFL", day: "Thanksgiving", ko: "2026-11-27T01:20:00Z", away: "Chiefs", home: "Bills", spread: -3, total: 46.5, tv: "NBC", espnA: "Kansas City", espnH: "Buffalo", tb: "tb1" },
@@ -59,8 +60,8 @@ async function refreshResults(store, results, now) {
   if (!due || now - (results.checkedAt || 0) < 120e3) return results;
   results.checkedAt = now;
   const feeds = {
-    NFL: "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=20261126-20261128",
-    CFB: "https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?dates=20261126-20261128&groups=80&limit=300",
+    NFL: "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=20261125-20261128",
+    CFB: "https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?dates=20261125-20261128&groups=80&limit=300",
   };
   for (const [lg, url] of Object.entries(feeds)) {
     try {
