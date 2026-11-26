@@ -228,17 +228,52 @@ function renderBoard() {
     `<div class="nx"><small>${next ? "Next lock, " + fmtKo({ ko: next.lock || next.ko }) : "Picks"}</small><b>${next ? esc(next.away) + " at " + esc(next.home) : "All games locked"}</b></div>`;
 }
 
+function prizes() {
+  const pot = S.players.length * S.games.length * S.perGame, days = (S.prizeDays || []).length * (S.dayPrize || 0);
+  return { pot, day: S.dayPrize || 0, overall: Math.max(pot - days, 0) };
+}
 function rules() {
-  const tb = S.games.filter((g) => g.tb).map((g) => `${esc(g.away)} at ${esc(g.home)}`);
-  const entry = S.games.length * S.perGame;
+  const entry = S.games.length * S.perGame, pz = prizes();
+  const tbOf = (k) => { const g = S.games.find((x) => x.tb === k); return g ? `${esc(g.away)} at ${esc(g.home)}` : ""; };
   return `<div class="card"><h3>How it works</h3><ul class="rules">
-    <li>${money(S.perGame)} a game for ${S.games.length} games, so ${money(entry)} to play. Best record takes the pot.</li>
+    <li>${money(S.perGame)} a game for ${S.games.length} games, so ${money(entry)} to play.</li>
+    <li>There are four prizes. The best record on Thanksgiving, on Friday and on Saturday each wins ${money(pz.day)}. The best record across all ${S.games.length} games wins the rest of the pot${pz.overall ? ", " + money(pz.overall) + " right now" : ""}.</li>
     <li>Your team has to cover the spread. A favorite at -3.5 must win by 4 or more; an underdog at +3.5 can lose by 3 and still cover.</li>
     <li>A cover is 1 point. Landing exactly on the number is a push, worth half a point.</li>
     <li>Each pick locks at kickoff. Nobody sees your pick before then, and a game you skip counts as a miss.</li>
-    <li>Ties are broken by the closest guess at total points in ${tb[0]}, then ${tb[1]}.</li>
+    <li>Each day has a tiebreaker: guess the total points in ${tbOf("tb1")} (Thanksgiving), ${tbOf("tb3")} (Friday) and ${tbOf("tb2")} (Saturday). A daily tie goes to the closest guess; if that's tied too, the prize is split.</li>
+    <li>An overall tie goes to the closest Thanksgiving guess, then the closest Saturday guess.</li>
     <li>Lines were set ${esc(S.linesAsOf)} and don't move.</li>
   </ul></div>`;
+}
+function dayResult(day) {
+  const games = S.games.filter((g) => g.day === day);
+  const tbg = games.find((g) => g.tb), tr = tbg && S.results[tbg.id];
+  const actual = tr?.final ? tr.home + tr.away : null;
+  const done = games.filter(cover).length;
+  const rows = S.players.map((p) => {
+    let w = 0, l = 0, ps = 0;
+    for (const g of games) { const c = cover(g); if (!c) continue; if (c === "push") { ps++; continue; } if (p.picks[g.id] === c) w++; else l++; }
+    const guess = tbg ? p.tb[tbg.tb] : null;
+    return { p, w, l, ps, pts: w + ps * 0.5, d: actual != null && guess != null ? Math.abs(guess - actual) : null };
+  });
+  const inf = (v) => (v == null ? 1e9 : v);
+  rows.sort((a, b) => b.pts - a.pts || inf(a.d) - inf(b.d) || a.p.name.localeCompare(b.p.name));
+  const top = rows.filter((x) => x.pts === rows[0].pts && inf(x.d) === inf(rows[0].d));
+  return { total: games.length, done, top };
+}
+function dailyCard() {
+  if (!S.prizeDays?.length || !S.players.length) return "";
+  const rows = S.prizeDays.map((day) => {
+    const d = dayResult(day), rec = (x) => `${x.w}-${x.l}${x.ps ? "-" + x.ps : ""}`;
+    const names = d.top.length > 3 ? `${d.top.length} players tied` : d.top.map((x) => esc(x.p.name)).join(d.top.length === 2 ? " and " : ", ");
+    let line;
+    if (!d.done) line = `<span class="note">No finals yet</span>`;
+    else if (d.done < d.total) line = `<b>${names}</b> at ${rec(d.top[0])}<span class="note" style="display:block">Leading after ${d.done} of ${d.total} games</span>`;
+    else line = `<b>${names}</b> at ${rec(d.top[0])}<span class="paid">${d.top.length > 1 ? "Split " + money(S.dayPrize) : "Wins " + money(S.dayPrize)}</span>`;
+    return `<tr${d.done === d.total ? ' class="lead"' : ""}><td class="nm">${esc(day)}</td><td>${line}</td></tr>`;
+  }).join("");
+  return `<div class="card"><h3>Daily winners</h3><p class="note">The best record each day wins ${money(S.dayPrize)}. Ties go to that day's tiebreaker guess.</p><table>${rows}</table></div>`;
 }
 function viewLogin() {
   const full = S.players.length >= S.max;
@@ -261,11 +296,10 @@ function gameCard(g, p) {
   let foot = "";
   if (r?.final) foot = `<div class="gfoot"><span>Final: ${esc(g.away)} ${r.away}, ${esc(g.home)} ${r.home}</span>${mine ? "" : "<b>No pick</b>"}</div>`;
   else if (lock) foot = `<div class="gfoot"><span>Locked at kickoff</span>${mine ? "" : "<b>No pick</b>"}</div>`;
-  const tbn = g.tb === "tb1" ? "1" : "2";
   return `<article class="game${!lock && !mine ? " todo" : ""}">
     <div class="gmeta"><span>${fmtKo(g)} ${g.lg === "NFL" ? "NFL" : "College"}${g.tv ? " on " + esc(g.tv) : ""}</span><span>Total ${g.total}</span></div>
     <div class="duel">${side("away")}${side("home")}</div>${foot}
-    ${g.tb ? `<div class="tb"><label for="${g.tb}">Tiebreaker ${tbn}<span>Guess both teams' combined points</span></label><input id="${g.tb}" type="number" inputmode="numeric" min="0" max="200" data-tb="${g.tb}" value="${p.tb[g.tb] ?? ""}" ${lock ? "disabled" : ""} placeholder="${Math.round(g.total)}"></div>` : ""}
+    ${g.tb ? `<div class="tb"><label for="${g.tb}">${esc(g.day)} tiebreaker<span>Guess both teams' combined points</span></label><input id="${g.tb}" type="number" inputmode="numeric" min="0" max="200" data-tb="${g.tb}" value="${p.tb[g.tb] ?? ""}" ${lock ? "disabled" : ""} placeholder="${Math.round(g.total)}"></div>` : ""}
   </article>`;
 }
 function viewPicks() {
@@ -294,9 +328,9 @@ function viewBoard() {
       <td><span class="nm">${esc(r.p.name)}</span>${r.p.id === S.me ? '<span class="you">You</span>' : ""}<span class="${r.p.paid ? "paid" : "owe"}">${r.p.paid ? "Paid" : "Owes " + money(S.games.length * S.perGame)}</span></td>
       <td class="n">${r.w}-${r.l}${r.ps ? "-" + r.ps : ""}</td><td class="n pts">${r.pts}</td>
       <td class="n">${r.d1 ?? "–"}</td><td class="n">${r.d2 ?? "–"}</td></tr>`).join("");
-  return chips + `<div class="card"><p class="note">${done ? `${done} of ${total} games final.` : "No finals yet. Standings fill in as games end."} ${league === "ALL" ? "First place overall takes the pot." : "This view is for bragging rights."}</p>
-    <table><thead><tr><th></th><th>Player</th><th class="n">Record</th><th class="n">Points</th><th class="n">TB 1</th><th class="n">TB 2</th></tr></thead><tbody>${body}</tbody></table></div>
-    <p class="onturf">TB 1 and TB 2 show how far off each tiebreaker guess was; lower is better. Actual totals: ${tbActual.tb1 ?? "not final"} and ${tbActual.tb2 ?? "not final"}.</p>`;
+  return chips + (league === "ALL" ? dailyCard() : "") + `<div class="card"><h3>${league === "ALL" ? "Overall" : league === "NFL" ? "NFL games" : "College games"}</h3><p class="note">${done ? `${done} of ${total} games final.` : "No finals yet. Standings fill in as games end."} ${league === "ALL" ? "First place overall takes " + money(prizes().overall) + "." : "This view is for bragging rights."}</p>
+    <table><thead><tr><th></th><th>Player</th><th class="n">Record</th><th class="n">Points</th><th class="n">Thu TB</th><th class="n">Sat TB</th></tr></thead><tbody>${body}</tbody></table></div>
+    <p class="onturf">The TB columns show how far off each tiebreaker guess was; lower is better. Actual totals: ${tbActual.tb1 ?? "not final"} on Thanksgiving and ${tbActual.tb2 ?? "not final"} on Saturday.</p>`;
 }
 
 function viewAll() {
@@ -307,9 +341,9 @@ function viewAll() {
     const pk = p.picks[g.id], c = cover(g);
     if (!pk) return `<td class="gl">None</td>`;
     return `<td class="${c ? (c === "push" ? "gp" : c === pk ? "gw" : "gl") : ""}">${esc(g[pk])}</td>`;
-  }).join("") + `<td>${p.tb.tb1 ?? "–"} / ${p.tb.tb2 ?? "–"}</td></tr>`).join("");
+  }).join("") + `<td>${p.tb.tb1 ?? "–"} / ${p.tb.tb3 ?? "–"} / ${p.tb.tb2 ?? "–"}</td></tr>`).join("");
   return `<div class="card"><p class="note">Everyone's picks appear when each game kicks off. Green covered, struck-through red missed.</p>
-    <div class="scroll"><table class="grid"><thead><tr><th>Player</th>${head}<th>Tiebreakers</th></tr></thead><tbody>${body}</tbody></table></div></div>`;
+    <div class="scroll"><table class="grid"><thead><tr><th>Player</th>${head}<th>Tiebreakers<br>Thu / Fri / Sat</th></tr></thead><tbody>${body}</tbody></table></div></div>`;
 }
 
 function viewAdmin() {
