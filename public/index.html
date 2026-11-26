@@ -320,7 +320,7 @@ function viewAdmin() {
   const players = S.players.map((p) => `<tr><td><b>${esc(p.name)}</b><span class="note" style="display:block">${p.made} of ${S.games.length} picks in</span>
       <div class="row" style="margin-top:6px"><button class="btn sm ${p.paid ? "" : "line"}" data-paid="${p.id}" data-v="${p.paid ? 0 : 1}">${p.paid ? "Paid" : "Mark paid"}</button><button class="btn sm line" data-pin="${p.id}">Reset PIN</button><button class="btn sm line" data-rm="${p.id}" data-nm="${esc(p.name)}">Remove</button></div></td></tr>`).join("");
   return `<div class="card"><h3>Players (${S.players.length} of ${S.max})</h3><table>${players || '<tr><td class="note">Nobody has joined yet.</td></tr>'}</table></div>
-    <div class="card"><h3>Final scores</h3><p class="note">Finals fill in from ESPN a few hours after kickoff. A score you save here overrides that. To undo yours, clear both boxes and save.</p><table>${games}</table></div>
+    <div class="card"><h3>Final scores</h3><p class="note">Finals fill in from ESPN on their own once a game ends, or check now with the button. A score you save here overrides that. To undo yours, clear both boxes and save.</p><button class="btn" id="fetchscores" style="margin-bottom:10px">Check ESPN for final scores</button><table>${games}</table></div>
     <button class="btn turf" id="aout">Lock commissioner tools</button>`;
 }
 
@@ -365,6 +365,13 @@ $("#main").addEventListener("click", async (e) => {
   } else if (b.id === "ago") {
     const code = $("#acode").value.trim();
     try { await api("admin", { code, action: "check" }); adminCode = code; ls.set("tb_admin", code); render(); } catch (err) { toast(err.message); }
+  } else if (b.id === "fetchscores") {
+    b.disabled = true; b.textContent = "Checking ESPN…";
+    try {
+      const r = await api("admin", { code: adminCode, action: "refresh" });
+      await load();
+      toast(r.updated.length ? `Added ${r.updated.length} final ${r.updated.length === 1 ? "score" : "scores"}` : r.errors.length ? "ESPN didn't answer. Enter the score by hand" : r.pending ? "No new finals yet" : "Every started game already has a score");
+    } catch (err) { toast(err.message); render(); }
   } else if (b.id === "aout") { adminCode = ""; ls.del("tb_admin"); render();
   } else if (b.dataset.save) {
     const g = b.dataset.save, a = $(`[data-ra="${g}"]`).value, h = $(`[data-rh="${g}"]`).value;

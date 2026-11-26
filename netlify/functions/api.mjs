@@ -53,20 +53,26 @@ async function auth(store, name, pin) {
   return p;
 }
 
-// Pull finals from ESPN's public scoreboard. Only writes a result when BOTH teams
-// match the expected home/away slots and the game is marked completed.
-async function refreshResults(store, results, now) {
-  const due = GAMES.some((g) => now > Date.parse(g.ko) + 2.5 * 3600e3 && !results.games[g.id]?.final);
-  if (!due || now - (results.checkedAt || 0) < 120e3) return results;
+// Pull finals from ESPN's public scoreboard, one request per league per day
+// (ESPN rejects date ranges). Only writes a result when BOTH teams match the
+// expected home/away slots and the game is marked completed.
+const espnDay = (g) => new Date(Date.parse(g.ko) - 5 * 3600e3).toISOString().slice(0, 10).replace(/-/g, ""); // US Eastern calendar day
+async function refreshResults(store, results, now, force = false) {
+  const wait = force ? 0 : 2.5 * 3600e3;
+  const due = GAMES.filter((g) => now > Date.parse(g.ko) + wait && !results.games[g.id]?.final);
+  if (!due.length) { results.lastCheck = { at: now, updated: [], errors: [], pending: 0 }; return results; }
+  if (!force && now - (results.checkedAt || 0) < 120e3) return results;
   results.checkedAt = now;
-  const feeds = {
-    NFL: "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=20261125-20261128",
-    CFB: "https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?dates=20261125-20261128&groups=80&limit=300",
-  };
-  for (const [lg, url] of Object.entries(feeds)) {
+  const updated = [], errors = [];
+  const feeds = [...new Set(due.map((g) => `${g.lg}|${espnDay(g)}`))];
+  await Promise.all(feeds.map(async (f) => {
+    const [lg, day] = f.split("|");
+    const url = lg === "NFL"
+      ? `https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=${day}`
+      : `https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?dates=${day}&groups=80&limit=300`;
     try {
-      const r = await fetch(url, { signal: AbortSignal.timeout(4500) });
-      if (!r.ok) continue;
+      const r = await fetch(url, { signal: AbortSignal.timeout(6000) });
+      if (!r.ok) { errors.push(`${lg} ${day}: ESPN answered ${r.status}`); return; }
       const data = await r.json();
       for (const ev of data.events || []) {
         const comp = ev.competitions?.[0];
@@ -74,14 +80,17 @@ async function refreshResults(store, results, now) {
         const h = comp.competitors.find((c) => c.homeAway === "home");
         const a = comp.competitors.find((c) => c.homeAway === "away");
         if (!h || !a) continue;
-        const g = GAMES.find((x) => x.lg === lg && x.espnH === h.team.location && x.espnA === a.team.location);
+        const g = due.find((x) => x.lg === lg && espnDay(x) === day && x.espnH === h.team.location && x.espnA === a.team.location);
         if (!g || results.games[g.id]?.manual) continue;
         const hs = Number(h.score), as = Number(a.score);
         if (!Number.isFinite(hs) || !Number.isFinite(as)) continue;
         results.games[g.id] = { away: as, home: hs, final: true, manual: false };
+        updated.push(`${g.away} ${as}, ${g.home} ${hs}`);
       }
-    } catch { /* scoreboard unreachable — commissioner can enter scores by hand */ }
-  }
+    } catch (e) { errors.push(`${lg} ${day}: ${e?.name || "fetch failed"}`); }
+  }));
+  results.lastCheck = { at: now, updated, errors, pending: due.length - updated.length };
+  console.log("score check", JSON.stringify(results.lastCheck));
   await store.setJSON("results", results);
   return results;
 }
@@ -160,6 +169,11 @@ export default async function handler(req) {
     if (String(body.code || "") !== ADMIN_CODE) return err("Wrong commissioner code.", 401);
     const a = body.action;
     if (a === "check") return json({ ok: true });
+    if (a === "refresh") {
+      const results = (await store.get("results", { type: "json" })) || { games: {}, checkedAt: 0 };
+      const out = await refreshResults(store, results, now, true);
+      return json({ ok: true, ...out.lastCheck });
+    }
     if (a === "setResult" || a === "clearResult") {
       if (!GAME[body.gid]) return err("Unknown game.");
       const results = (await store.get("results", { type: "json" })) || { games: {}, checkedAt: 0 };
