@@ -19,10 +19,12 @@ export const GAMES = [
   { id: "nfl4", lg: "NFL", day: "Friday", ko: "2026-11-27T20:00:00Z", away: "Broncos", home: "Steelers", spread: 3.5, total: 36.5, tv: "Prime", espnA: "Denver", espnH: "Pittsburgh" },
   { id: "cfb2", lg: "CFB", day: "Friday", ko: "2026-11-27T20:30:00Z", away: "Florida", home: "Florida State", spread: 6.5, total: 53.5, espnA: "Florida", espnH: "Florida State" },
   { id: "cfb3", lg: "CFB", day: "Friday", ko: "2026-11-28T00:30:00Z", away: "Texas", home: "Texas A&M", spread: 11, total: 40.5, espnA: "Texas", espnH: "Texas A&M" },
+  { id: "cfb9", lg: "CFB", day: "Saturday", ko: "2026-11-28T17:00:00Z", away: "Notre Dame", home: "Syracuse", spread: 25.5, total: 52.5, espnA: "Notre Dame", espnH: "Syracuse" },
   { id: "cfb4", lg: "CFB", day: "Saturday", ko: "2026-11-28T17:00:00Z", away: "Michigan", home: "Ohio State", spread: -10.5, total: 37.5, espnA: "Michigan", espnH: "Ohio State" },
   { id: "cfb5", lg: "CFB", day: "Saturday", ko: "2026-11-28T20:00:00Z", away: "South Carolina", home: "Clemson", spread: 6, total: 41.5, espnA: "South Carolina", espnH: "Clemson" },
   { id: "cfb6", lg: "CFB", day: "Saturday", ko: "2026-11-28T20:30:00Z", away: "Penn State", home: "Maryland", spread: 7, total: 48.5, espnA: "Penn State", espnH: "Maryland" },
   { id: "cfb7", lg: "CFB", day: "Saturday", ko: "2026-11-29T00:30:00Z", away: "Pitt", home: "Cal", spread: 9.5, total: 47.5, espnA: "Pittsburgh", espnH: "California" },
+  { id: "cfb10", lg: "CFB", day: "Saturday", ko: "2026-11-29T00:30:00Z", away: "Washington", home: "Oregon", spread: -14, total: 50.5, espnA: "Washington", espnH: "Oregon" },
   { id: "cfb8", lg: "CFB", day: "Saturday", ko: "2026-11-29T00:30:00Z", away: "Auburn", home: "Alabama", spread: -15, total: 49.5, espnA: "Auburn", espnH: "Alabama", tb: "tb2" },
 ];
 const GAME = Object.fromEntries(GAMES.map((g) => [g.id, g]));
