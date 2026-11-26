@@ -183,7 +183,7 @@ async function load(silent) {
   } catch (e) { if (!silent) $("#main").innerHTML = `<div class="card"><h3>Can't reach the pool</h3><p class="note">${esc(e.message)}</p><button class="btn" id="retry">Try again</button></div>`; }
 }
 const now = () => Date.now() + (S?.skew || 0);
-const isLocked = (g) => now() >= Date.parse(g.ko);
+const isLocked = (g) => now() >= Date.parse(g.lock || g.ko);
 const fmtKo = (g) => new Date(g.ko).toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" });
 const sp = (n) => (n > 0 ? "+" + n : n === 0 ? "Pick" : String(n));
 const spreadFor = (g, side) => sp(side === "home" ? g.spread : -g.spread);
@@ -225,7 +225,7 @@ function renderBoard() {
   const next = S.games.find((g) => !isLocked(g));
   $("#board").innerHTML =
     `<div><small>Pot</small><b>${money(n * entry)}</b></div><div><small>Players</small><b>${n}/${S.max}</b></div>` +
-    `<div class="nx"><small>${next ? "Next lock, " + fmtKo(next) : "Picks"}</small><b>${next ? esc(next.away) + " at " + esc(next.home) : "All games locked"}</b></div>`;
+    `<div class="nx"><small>${next ? "Next lock, " + fmtKo({ ko: next.lock || next.ko }) : "Picks"}</small><b>${next ? esc(next.away) + " at " + esc(next.home) : "All games locked"}</b></div>`;
 }
 
 function rules() {

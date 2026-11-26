@@ -12,7 +12,7 @@ const LINES_AS_OF = "Wed, Nov 25 at 6:50 PM ET";
 // spread = HOME team's spread (negative = home favored). total = over/under.
 // espnA / espnH = ESPN "location" names used to auto-match final scores.
 export const GAMES = [
-  { id: "nfl0", lg: "NFL", day: "Wednesday", ko: "2026-11-26T01:00:00Z", away: "Packers", home: "Rams", spread: -2.5, total: 43.5, tv: "Netflix", espnA: "Green Bay", espnH: "Los Angeles" },
+  { id: "nfl0", lg: "NFL", day: "Wednesday", ko: "2026-11-26T01:00:00Z", lock: "2026-11-26T01:20:00Z", away: "Packers", home: "Rams", spread: -2.5, total: 43.5, tv: "Netflix", espnA: "Green Bay", espnH: "Los Angeles" },
   { id: "nfl1", lg: "NFL", day: "Thanksgiving", ko: "2026-11-26T18:00:00Z", away: "Bears", home: "Lions", spread: 1.5, total: 55.5, tv: "CBS", espnA: "Chicago", espnH: "Detroit" },
   { id: "nfl2", lg: "NFL", day: "Thanksgiving", ko: "2026-11-26T21:30:00Z", away: "Eagles", home: "Cowboys", spread: -8.5, total: 47.5, tv: "FOX", espnA: "Philadelphia", espnH: "Dallas" },
   { id: "nfl3", lg: "NFL", day: "Thanksgiving", ko: "2026-11-27T01:20:00Z", away: "Chiefs", home: "Bills", spread: -3, total: 46.5, tv: "NBC", espnA: "Kansas City", espnH: "Buffalo", tb: "tb1" },
@@ -37,7 +37,7 @@ const json = (body, status = 200) =>
 const err = (msg, status = 400) => json({ error: msg }, status);
 const hash = (id, pin) => createHash("sha256").update(`${id}:${pin}:turkey`).digest("hex");
 const slug = (name) => name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-const locked = (gid, now) => now >= Date.parse(GAME[gid].ko);
+const locked = (gid, now) => now >= Date.parse(GAME[gid].lock || GAME[gid].ko);
 
 async function allPlayers(store) {
   const { blobs } = await store.list({ prefix: "player/" });
